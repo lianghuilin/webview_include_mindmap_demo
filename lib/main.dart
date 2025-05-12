@@ -86,7 +86,7 @@ class MyApp extends StatelessWidget {
           </script>
         </div>
 
-        <script>
+        <script type="text/javascript">
           window.exportSVGtoImage = function(fileName = 'markmapImage', type = 'png') {
             const _svg = document.querySelector('svg.markmap');
             if (!_svg) {
@@ -137,13 +137,18 @@ class MyApp extends StatelessWidget {
         </script>
       </body>
       </html>
-
 ''');
 
     void invokeBtnHandle() async {
       print('invokeBtnHandle come in');
       await Future.delayed(const Duration(milliseconds: 2000));
-      controller.runJavaScript('echo()');
+      controller.runJavaScript('''
+        function printTest() {
+          console.log('printTest come in');
+          document.querySelector('h1').innerText = 'Hello, MindMap! ${DateTime.now()}';
+        }
+        printTest();
+      ''');
     }
 
     return MaterialApp(
