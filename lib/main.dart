@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,9 +17,6 @@ class MyApp extends StatelessWidget {
           ..setBackgroundColor(const Color(0x00000000))
           ..setNavigationDelegate(
             NavigationDelegate(
-              onProgress: (int progress) {
-                print('WebView is loading (progress: $progress%)');
-              },
               onPageStarted: (String url) {
                 print('Page started loading: $url');
               },
@@ -36,7 +31,8 @@ class MyApp extends StatelessWidget {
           ..addJavaScriptChannel(
             'MindMapCaller',
             onMessageReceived: (JavaScriptMessage message) {
-              print('MindMap caller get ${message.message}');
+              String rawSvg = message.message;
+              print('img data $rawSvg');
             },
           );
 
@@ -65,7 +61,7 @@ class MyApp extends StatelessWidget {
   <!DOCTYPE html>
       <html>
       <head>
-        <title>Mindmap</title> 
+        <title>MindMap</title> 
         <style>
         .markmap {
           position: relative;
@@ -79,70 +75,31 @@ class MyApp extends StatelessWidget {
           height: 100vh;
         }
         </style>
+
+        <!-- 引入插件 -->
+        <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
         <!-- 引入markmap.js -->
         <script src="https://cdn.jsdelivr.net/npm/markmap-autoloader@latest"></script>
       </head>
       <body>
-        <h1>思维导图</h1>
+        <h1 id="title">思维导图</h1>
+
+        <div style="display: none;" id="base64Container">img init data</div>
+
         <!-- markdown mindmap容器 -->
-        <div class="markmap">
+        <div id="markmap" class="markmap">
           <!-- markdown数据内容 -->
           <script type="text/template">
             ${mindString}
           </script>
         </div>
 
-        <script type="text/javascript">
-          window.exportSVGtoImage = function(fileName = 'markmapImage', type = 'png') {
-            const _svg = document.querySelector('svg.markmap');
-            if (!_svg) {
-              console.error('SVG元素未找到');
-              return;
-            }
-
-            try {
-              const { width, height } = _svg.getBoundingClientRect();
-              const imgData = covertSVG2Image(_svg, fileName, width, height, type);
-              window.WebViewBridge.postMessage(imgData);
-            } catch (error) {
-              console.error('SVG转换为图片失败, ' + error, 'error');
-            }
-          }
-
-          function echo() {
-            console.log('echo come in---');
-          }
-
-          const covertSVG2Image = (node, name, width, height, type = 'png') => {
-            try {
-                let serializer = new XMLSerializer()
-                let source = '<?xml version="1.0" standalone="no"?>\r\n' + serializer.serializeToString(node);
-
-                let image = new Image()
-                image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source)
-                let canvas = document.createElement('canvas')
-                canvas.width = width
-                canvas.height = height
-                let context = canvas.getContext('2d')
-                context.fillStyle = '#fff'
-                context.fillRect(0, 0, 10000, 10000)
-                image.onload = function () {
-                    context.drawImage(image, 0, 0)
-                }
-                const svgData = canvas.toDataURL('image/'+ type);
-                return svgData;
-            } catch (error) {
-                console.error('SVG转换为图片失败, ' + error, 'error');
-            }
-          }
-        </script>
       </body>
       </html>
 ''');
 
     void invokeBtnHandle() async {
       print('invokeBtnHandle come in');
-      // await Future.delayed(const Duration(milliseconds: 2000));
       controller.runJavaScript('''
         function printTest() {
           console.log('printTest come in');
@@ -153,10 +110,27 @@ class MyApp extends StatelessWidget {
     }
 
     void exportBtnHandle() async {
-      print('exportBtnHandle come in');
+      String result =
+          await controller.runJavaScriptReturningResult(
+                '''document.getElementById('base64Container').innerText''',
+              )
+              as String;
+      print('reuslt $result');
+    }
+
+    void buildImgHandle() async {
       controller.runJavaScript('''
-        MindMapCaller.postMessage('caller hello world~');
-      ''');
+        try {
+          const _svg = document.querySelector('#markmap');
+          html2canvas(_svg).then((canvas) => {
+            const svgData = canvas.toDataURL('image/png');
+            document.getElementById('base64Container').innerText = svgData;
+            // MindMapCaller.postMessage(svgData);
+          });
+        } catch (error) {
+          console.error('SVG转换为图片失败, ' + error, 'error');
+        };
+''');
     }
 
     return MaterialApp(
@@ -169,11 +143,16 @@ class MyApp extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
                 onPressed: () {
-                  print('Export Button Pressed come in');
+                  buildImgHandle();
+                },
+                child: Text('Build'),
+              ),
+              ElevatedButton(
+                onPressed: () {
                   exportBtnHandle();
                 },
                 child: const Text('Export'),
