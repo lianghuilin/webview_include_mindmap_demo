@@ -32,6 +32,12 @@ class MyApp extends StatelessWidget {
                 print('Web resource error: ${error.description}');
               },
             ),
+          )
+          ..addJavaScriptChannel(
+            'MindMapCaller',
+            onMessageReceived: (JavaScriptMessage message) {
+              print('MindMap caller get ${message.message}');
+            },
           );
 
     const String mindString = '''
@@ -129,11 +135,6 @@ class MyApp extends StatelessWidget {
                 console.error('SVG转换为图片失败, ' + error, 'error');
             }
           }
-
-        function echoTest() {
-          console.log('echoTest come in');
-          document.querySelector('h1').innerText = 'Hello, MindMap!';
-        }
         </script>
       </body>
       </html>
@@ -141,13 +142,20 @@ class MyApp extends StatelessWidget {
 
     void invokeBtnHandle() async {
       print('invokeBtnHandle come in');
-      await Future.delayed(const Duration(milliseconds: 2000));
+      // await Future.delayed(const Duration(milliseconds: 2000));
       controller.runJavaScript('''
         function printTest() {
           console.log('printTest come in');
           document.querySelector('h1').innerText = 'Hello, MindMap! ${DateTime.now()}';
         }
         printTest();
+      ''');
+    }
+
+    void exportBtnHandle() async {
+      print('exportBtnHandle come in');
+      controller.runJavaScript('''
+        MindMapCaller.postMessage('caller hello world~');
       ''');
     }
 
@@ -166,6 +174,7 @@ class MyApp extends StatelessWidget {
               ElevatedButton(
                 onPressed: () {
                   print('Export Button Pressed come in');
+                  exportBtnHandle();
                 },
                 child: const Text('Export'),
               ),
